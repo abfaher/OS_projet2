@@ -8,10 +8,11 @@
 #include <arpa/inet.h>  // pour le inet_pton()
 #include <sys/types.h>  // pour les connect...
 #include <cstring>  // pour le strlen()
+#include <vector>
+#include "queries.hpp"
+#include "utils.hpp"
 
 using namespace std;
-
-#define TAILLE_MAX 1000
 
 int main(int argc, char *argv[]){
 
@@ -37,22 +38,21 @@ int main(int argc, char *argv[]){
     le résultat de cette requête, puis fait un clear de la requête.
     */
     char requete[256];
+    char result[512];
     cout << "> ";
     while (cin.getline(requete, 256)) {
         size_t longueur = strlen(requete) + 1;
         cout << "Envoi..." << endl;
-        if (write(sock_fd, requete, longueur) < 0) {
-            perror("write error");
-        }
+        safe_write(sock_fd, requete, longueur);
         cout << "Query sent." << endl;
 
         // lecture du resultat écrit sur le fichier et l'afficher sur le terminal
-        char result[TAILLE_MAX];
-        while ((read(sock_fd, result, TAILLE_MAX)) > 0) {
-            cout << result;
+        while(safe_read(sock_fd, &result, sizeof(result)) > 0) {
+            if (strcmp(result, "end") == 0) { break; }
+            else { cout << result << endl; }
+            memset(result, 0, sizeof(result));
         }
         cout << "> ";
-
     }
     close(sock_fd);
     return 0;

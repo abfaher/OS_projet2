@@ -4,6 +4,9 @@
 #include <cstring>
 #include <ctime>  // std::tm
 #include <functional>
+#include <string>
+
+using namespace std;
 
 /**
  * Student structure type.
@@ -17,9 +20,9 @@ struct student_t {
 };
 
 /**
- * Convert a student to a human-readlable string.
+ * return a convertion of student to a human-readlable string.
  **/
-void student_to_str(char* buffer, const student_t* s, size_t buffer_size);
+string student_to_str(const student_t* s);
 
 /**
  * Return whether two students are equal or not.

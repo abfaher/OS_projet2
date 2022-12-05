@@ -5,6 +5,7 @@
 #include <cstring>
 #include <ctime>
 
+
 // private functions //////////////////////////////////////////////////////////
 
 /** Return true if str matches the regexp /[+-]?0+/:
@@ -31,12 +32,14 @@ bool is_str_zero(const char* const str) {
 
 // main functions ////////////////////////////////////////////////////////////
 
-void student_to_str(char *buffer, const student_t *s, size_t buffer_size) {
+string student_to_str(const student_t *s) {
   int day   = s->birthdate.tm_mday;
   int month = s->birthdate.tm_mon;
   int year  = s->birthdate.tm_year;
-  snprintf(buffer, buffer_size, "%.9u: %s %s in section %s, born on the %.2d/%.2d/%.2d",
-          s->id, s->fname, s->lname, s->section, day, month + 1, year + 1900);
+  string s_student;
+  s_student = to_string(s->id) + ": " + s->fname + " " + s->lname + " in section " + s->section + ", born on the " +
+  to_string(day) + "/" + to_string(month + 1) + "/" + to_string(year + 1900);
+  return s_student;
 }
 
 bool student_equals(const student_t *s1, const student_t *s2) {
