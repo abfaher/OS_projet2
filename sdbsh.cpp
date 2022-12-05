@@ -4,19 +4,21 @@
 #include <sys/socket.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>  // pour le inet_pton()
 #include <sys/types.h>  // pour les connect...
 #include <cstring>  // pour le strlen()
 #include <vector>
+#include <atomic>
+
 #include "queries.hpp"
-#include "utils.hpp"
 
 using namespace std;
 
 int main(int argc, char *argv[]){
 
-    int sock_fd;
+    atomic<int> sock_fd;
     if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("Socket error");
     }
@@ -26,9 +28,9 @@ int main(int argc, char *argv[]){
     serv_addr.sin_port = htons(28772);
 
     // Conversion de string vers IPv4 ou IPv6 en binaire
-    inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
+    inet_pton(AF_INET, argv[1], &serv_addr.sin_addr);  // changer le "127.0.0.1" par le argv[1] qui va contenir l'adresse IP du serveur
 
-    if (connect(sock_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    if (connect(sock_fd.load(), (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         perror("connectiong error");
     }
 
@@ -38,22 +40,25 @@ int main(int argc, char *argv[]){
     le résultat de cette requête, puis fait un clear de la requête.
     */
     char requete[256];
-    char result[512];
-    cout << "> ";
+    // cout << "> ";
     while (cin.getline(requete, 256)) {
         size_t longueur = strlen(requete) + 1;
-        cout << "Envoi..." << endl;
-        safe_write(sock_fd, requete, longueur);
-        cout << "Query sent." << endl;
+        // cout << "Envoi..." << endl;
+        if (write(sock_fd.load(), requete, longueur) < 0) {
+            perror("write error");
+        }
+        // cout << "Query sent." << endl;
 
         // lecture du resultat écrit sur le fichier et l'afficher sur le terminal
-        while(safe_read(sock_fd, &result, sizeof(result)) > 0) {
-            if (strcmp(result, "end") == 0) { break; }
-            else { cout << result << endl; }
+        char result[512];
+        while(read(sock_fd.load(), &result, sizeof(result)) > 0) {
+            if (strcmp(result, "STOP") == 0) { break; }
+            else { cout << result; }
             memset(result, 0, sizeof(result));
         }
-        cout << "> ";
+        // cout << "< ";
+
     }
-    close(sock_fd);
+    close(sock_fd.load());
     return 0;
 }

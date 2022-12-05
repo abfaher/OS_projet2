@@ -38,7 +38,7 @@ string student_to_str(const student_t *s) {
   int year  = s->birthdate.tm_year;
   string s_student;
   s_student = to_string(s->id) + ": " + s->fname + " " + s->lname + " in section " + s->section + ", born on the " +
-  to_string(day) + "/" + to_string(month + 1) + "/" + to_string(year + 1900);
+  to_string(day) + "/" + to_string(month + 1) + "/" + to_string(year + 1900) + "\n";
   return s_student;
 }
 

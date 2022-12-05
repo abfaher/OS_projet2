@@ -76,10 +76,8 @@ void execute_delete(query_result_t& result, database_t* const db, const char* co
 			counter++;
 		}
 	}
-	string text = to_string(counter) + " student(s) deleted\n";
+	string text = to_string(counter) + " deleted student(s)\n";
 	result.students.push_back(text);
-	// auto new_end = remove_if(db->data.begin(), db->data.end(), predicate);
-	// db->data.erase(new_end, db->data.end());
 }
 
 // parse_and_execute_* ////////////////////////////////////////////////////////
