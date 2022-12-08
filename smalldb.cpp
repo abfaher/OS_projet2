@@ -17,25 +17,30 @@ using namespace std;
 #define RESULT_TAILLE 512
 #define WAITING_REQUESTS 5
 
-atomic<int> communication_socket;
+vector<int> communication_socket;
 database_t db;
 
 
 void* queries_management(void* ptr) {
-	atomic<int>* sock = (atomic<int>*)ptr;
+	int sock = *(int*)ptr;
 	char requete[256];
 	query_result_t result;
-	string stop = "STOP";
+	string text;
 
-	while (read(*sock, requete, 256) > 0) {
+	while (read(sock, requete, 256) > 0) {
 		parse_and_execute(result, &db, requete);
 		for (size_t i = 0; i < result.students.size(); i++) {
-			if ((write(*sock, result.students[i].c_str(), RESULT_TAILLE)) < 0) {
-			perror("write error");
-			}
+			if ((write(sock, student_to_str(&result.students[i]).c_str(), RESULT_TAILLE)) < 0) { perror("write error"); }
 		}
+		text += to_string(result.students.size());
+		if (strncmp(requete, "select", sizeof("select")-1) == 0) { text += " student(s) selected\n"; }
+		else if (strncmp(requete, "update", sizeof("update")-1) == 0) { text += " student(s) updated\n"; }
+		else if (strncmp(requete, "delete", sizeof("delete")-1) == 0) { text += " deleted student(s)\n"; }
+
+		write(sock, text.c_str(), RESULT_TAILLE);
 		result.students.clear();
-		write(*sock, stop.c_str(), stop.length());  // envoyer un message d'arrêt
+		text.clear();
+		write(sock, "STOP", RESULT_TAILLE);  // envoyer un message d'arrêt
 	}
 	// printf("Client %d disconnected (normal). closing connections and thread",(int)(*sock));
 	return NULL;
@@ -68,8 +73,8 @@ int main(int argc, char *argv[]) {
 
 		// liaison du serveur/client
 		if (bind(listening_fd, (struct sockaddr *)&srv_address, sizeof(srv_address)) < 0) {
-				perror("bind error");
-				exit(EXIT_FAILURE);
+			perror("bind error");
+			exit(EXIT_FAILURE);
 		}
 
 		// listen va attendre jusqu'à ce qu'un client fait une demande de connexion     
@@ -86,15 +91,14 @@ int main(int argc, char *argv[]) {
 				cout << "waiting for a conection..." << endl;
 				// accept va accepter la demande de connexion
 				size_t addrlen = sizeof(srv_address);
-				communication_socket = accept(listening_fd, (struct sockaddr *)&srv_address, (socklen_t *)&addrlen);
+				communication_socket.push_back(accept(listening_fd, (struct sockaddr *)&srv_address, (socklen_t *)&addrlen));
 
-				printf("Accepted connection (%d)\n", communication_socket.load());
+				printf("Accepted connection (%d)\n", communication_socket.back());
 
 				// déterminer les paramètres du thread
-				pthread_create(&threads[i], NULL, queries_management, &communication_socket);
+				pthread_create(&threads[i], NULL, queries_management, &communication_socket.back());
 				i++;
 		}
-
 		cout << "thread's job is done. " << endl;
 
 		close(listening_fd);

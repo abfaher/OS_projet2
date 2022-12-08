@@ -11,7 +11,7 @@
 using namespace std;
 
 struct query_result_t {
-    vector<string> students;
+    vector<student_t> students;
 };
 
 // execute_* //////////////////////////////////////////////////////////////////

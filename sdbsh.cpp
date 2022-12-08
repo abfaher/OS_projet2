@@ -17,8 +17,8 @@
 using namespace std;
 
 int main(int argc, char *argv[]){
-
-    atomic<int> sock_fd;
+    (void)argc;
+    int sock_fd;
     if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("Socket error");
     }
@@ -30,7 +30,7 @@ int main(int argc, char *argv[]){
     // Conversion de string vers IPv4 ou IPv6 en binaire
     inet_pton(AF_INET, argv[1], &serv_addr.sin_addr);  // changer le "127.0.0.1" par le argv[1] qui va contenir l'adresse IP du serveur
 
-    if (connect(sock_fd.load(), (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    if (connect(sock_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         perror("connectiong error");
     }
 
@@ -44,21 +44,21 @@ int main(int argc, char *argv[]){
     while (cin.getline(requete, 256)) {
         size_t longueur = strlen(requete) + 1;
         // cout << "Envoi..." << endl;
-        if (write(sock_fd.load(), requete, longueur) < 0) {
+        if (write(sock_fd, requete, longueur) < 0) {
             perror("write error");
         }
         // cout << "Query sent." << endl;
 
         // lecture du resultat écrit sur le fichier et l'afficher sur le terminal
         char result[512];
-        while(read(sock_fd.load(), &result, sizeof(result)) > 0) {
+        while(read(sock_fd, &result, sizeof(result)) > 0) {
             if (strcmp(result, "STOP") == 0) { break; }
             else { cout << result; }
             memset(result, 0, sizeof(result));
         }
-        // cout << "< ";
+        cout << "> ";
 
     }
-    close(sock_fd.load());
+    close(sock_fd);
     return 0;
 }

@@ -17,11 +17,11 @@ void execute_select(query_result_t& result, database_t* const db, const char* co
 	}
 	for (const student_t& s : db->data) {
 		if (predicate(s)) {
-			result.students.push_back(student_to_str(&s));
+			result.students.push_back(s);
 		}
 	}
-	string text = to_string(result.students.size()) + " student(s) selected\n";
-	result.students.push_back(text);
+	// string text = to_string(result.students.size()) + " student(s) selected\n";
+	// result.students.push_back(text);
 }
 
 void execute_update(query_result_t& result, database_t* const db, const char* const ffield, const char* const fvalue, 
@@ -41,10 +41,11 @@ const char* const efield, const char* const evalue) {
 		if (predicate(s)) {
 			counter++;
 			updater(s);
+			result.students.push_back(s);
 		}
 	}
-	string text = to_string(counter) + " student(s) updated\n";
-	result.students.push_back(text);
+	// string text = to_string(counter) + " student(s) updated\n";
+	// result.students.push_back(text);
 }
 
 void execute_insert(query_result_t& result, database_t* const db, const char* const fname, const char* const lname, const unsigned id, 
@@ -56,7 +57,7 @@ const char* const section, const tm birthdate) {
 	snprintf(s->lname, sizeof(s->lname), "%s", lname);
 	snprintf(s->section, sizeof(s->section), "%s", section);
 	s->birthdate = birthdate;
-	result.students.push_back(student_to_str(s));
+	result.students.push_back(*s);
 }
 
 void execute_delete(query_result_t& result, database_t* const db, const char* const field, const char* const value) {
@@ -69,6 +70,7 @@ void execute_delete(query_result_t& result, database_t* const db, const char* co
 	size_t taille = db->data.size();
 	for (size_t i=0; i < taille;  i++) {
 		if (predicate(db->data[i])) {
+			result.students.push_back(db->data[i]);
 			db->data[i] = db->data[db->data.size()-1];
 			db->data.pop_back();
 			i--;
@@ -76,8 +78,8 @@ void execute_delete(query_result_t& result, database_t* const db, const char* co
 			counter++;
 		}
 	}
-	string text = to_string(counter) + " deleted student(s)\n";
-	result.students.push_back(text);
+	// string text = to_string(counter) + " deleted student(s)\n";
+	// result.students.push_back(text);
 }
 
 // parse_and_execute_* ////////////////////////////////////////////////////////
