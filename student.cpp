@@ -37,8 +37,29 @@ string student_to_str(const student_t *s) {
   int month = s->birthdate.tm_mon;
   int year  = s->birthdate.tm_year;
   string s_student;
-  s_student = to_string(s->id) + ": " + s->fname + " " + s->lname + " in section " + s->section + ", born on the " +
-  to_string(day) + "/" + to_string(month + 1) + "/" + to_string(year + 1900) + "\n";
+  // conversion de l'id :
+  string id_string = "";
+  size_t id_conversion = strlen(to_string(s->id).c_str());
+  for (int i=0; i<9-(int)id_conversion; i++) {
+    id_string += "0";
+  }
+  id_string += to_string(s->id);
+
+  // conversion du birthday :
+  string id_day;
+  string id_month;
+  size_t birthday_day_conversion = strlen(to_string(day).c_str());
+  size_t birthday_month_conversion = strlen(to_string(month).c_str());
+  for (int i=0; i<2-(int)birthday_day_conversion; i++) {
+    id_day += "0";
+  }
+  id_day += to_string(day);
+  for (int i=0; i<2-(int)birthday_month_conversion; i++) {
+    id_month += "0";
+  }
+  id_month += to_string(month + 1);
+  s_student = id_string + ": " + s->fname + " " + s->lname + " in section " + s->section + ", born on the " +
+  id_day + "/" + id_month + "/" + to_string(year + 1900) + "\n";
   return s_student;
 }
 
