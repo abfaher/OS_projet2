@@ -24,4 +24,4 @@ utils.o: utils.cpp utils.hpp
 	${COMPILER} -c utils.cpp ${FLAGS}
 
 clean:
-	rm logs/*
+	rm *.o

@@ -19,6 +19,7 @@ using namespace std;
 int main(int argc, char *argv[]){
     (void)argc;
     int sock_fd;
+    sleep(2);
     if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("Socket error");
     }
@@ -40,24 +41,19 @@ int main(int argc, char *argv[]){
     le résultat de cette requête, puis fait un clear de la requête.
     */
     char requete[256];
+    char result[512];
     // cout << "> ";
     while (cin.getline(requete, 256)) {
         size_t longueur = strlen(requete) + 1;
-        // cout << "Envoi..." << endl;
         if (write(sock_fd, requete, longueur) < 0) {
             perror("write error");
         }
-        // cout << "Query sent." << endl;
-
-        // lecture du resultat écrit sur le fichier et l'afficher sur le terminal
-        char result[512];
         while(read(sock_fd, &result, sizeof(result)) > 0) {
             if (strcmp(result, "STOP") == 0) { break; }
             else { cout << result; }
             memset(result, 0, sizeof(result));
         }
-        cout << "> ";
-
+        // cout << "> ";
     }
     close(sock_fd);
     return 0;

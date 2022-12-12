@@ -25,23 +25,28 @@ void* queries_management(void* ptr) {
 	int sock = *(int*)ptr;
 	char requete[256];
 	query_result_t result;
-	string text;
+	char text[512];
 
 	while (read(sock, requete, 256) > 0) {
 		parse_and_execute(result, &db, requete);
-		for (size_t i = 0; i < result.students.size(); i++) {
-			if ((write(sock, student_to_str(&result.students[i]).c_str(), RESULT_TAILLE)) < 0) { perror("write error"); }
-		}
-		text += to_string(result.students.size());
-		if (strncmp(requete, "select", sizeof("select")-1) == 0) { text += " student(s) selected\n"; }
-		else if (strncmp(requete, "update", sizeof("update")-1) == 0) { text += " student(s) updated\n"; }
-		else if (strncmp(requete, "delete", sizeof("delete")-1) == 0) { text += " deleted student(s)\n"; }
+		if (result.status == QUERY_SUCCESS) {
+			if ((strncmp(requete, "delete", sizeof("delete")-1) != 0) && (strncmp(requete, "update", sizeof("update")-1) != 0)) {
+				for (size_t i = 0; i < result.students.size(); i++) {
+					if ((write(sock, student_to_str(&result.students[i]).c_str(), RESULT_TAILLE)) < 0) { perror("write error"); }
+				}
+			}
+			if (strncmp(requete, "select", sizeof("select")-1) == 0) { sprintf(text, "%d student(s) selected\n", (int)result.students.size()); }
+			else if (strncmp(requete, "update", sizeof("update")-1) == 0) { sprintf(text, "%d student(s) updated\n", (int)result.students.size()); }
+			else if (strncmp(requete, "delete", sizeof("delete")-1) == 0) { sprintf(text, "%d deleted student(s)\n", (int)result.students.size()); }
 
-		write(sock, text.c_str(), RESULT_TAILLE);
+			write(sock, text, RESULT_TAILLE);
+		} else { write(sock, result.errorMessage, RESULT_TAILLE); }
 		result.students.clear();
-		text.clear();
+		memset(text, 0, RESULT_TAILLE);
 		write(sock, "STOP", RESULT_TAILLE);  // envoyer un message d'arrêt
+		memset(result.errorMessage, 0, RESULT_TAILLE);
 	}
+	close(sock);
 	// printf("Client %d disconnected (normal). closing connections and thread",(int)(*sock));
 	return NULL;
 }
@@ -82,6 +87,8 @@ int main(int argc, char *argv[]) {
 				perror("listening error");
 				exit(EXIT_FAILURE);
 		}
+
+		pthread_mutex_init(&db.exclusive_access, NULL);
 		
 		// création du thread
 		pthread_t threads[WAITING_REQUESTS];

@@ -11,6 +11,7 @@
 struct database_t {
   std::vector<student_t> data; /** Students */
   const char*            path; /** DB path */
+  pthread_mutex_t exclusive_access;
 };
 
 // Nous utilisons un std::vector ici pour ne pas avoir à gérer le code

@@ -1,5 +1,5 @@
 #include <iostream>
-#include <stdio.h>
+#include <stdio.h>	
 #include "queries.hpp"
 
 using namespace std;
@@ -10,9 +10,8 @@ using namespace std;
 
 void execute_select(query_result_t& result, database_t* const db, const char* const field, const char* const value) {
 	std::function<bool(const student_t&)> predicate = get_filter(field, value);
-	
 	if (!predicate) {
-		// query_fail_bad_filter(result, field, value);
+		query_fail_bad_filter(result, field, value);
 		return;
 	}
 	for (const student_t& s : db->data) {
@@ -20,55 +19,70 @@ void execute_select(query_result_t& result, database_t* const db, const char* co
 			result.students.push_back(s);
 		}
 	}
-	// string text = to_string(result.students.size()) + " student(s) selected\n";
-	// result.students.push_back(text);
+	result.status = QUERY_SUCCESS;
 }
 
 void execute_update(query_result_t& result, database_t* const db, const char* const ffield, const char* const fvalue, 
 const char* const efield, const char* const evalue) {
+	pthread_mutex_lock(&db->exclusive_access);
 	std::function<bool(const student_t&)> predicate = get_filter(ffield, fvalue);
-	int counter = 0;
 	if (!predicate) {
-		// query_fail_bad_filter(fout, ffield, fvalue);
+		query_fail_bad_filter(result, ffield, fvalue);
+		pthread_mutex_unlock(&db->exclusive_access);
 		return;
-	}
-	std::function<void(student_t&)> updater = get_updater(efield, evalue);
-	if (!updater) {
-		// query_fail_bad_update(fout, efield, evalue);
-		return;
-	}
-	for (student_t& s : db->data) {
-		if (predicate(s)) {
-			counter++;
-			updater(s);
-			result.students.push_back(s);
+	} else {
+		std::function<void(student_t&)> updater = get_updater(efield, evalue);
+		if (!updater) {
+			query_fail_bad_update(result, efield, evalue);
+		} else if (strcmp(efield, "id")== 0) {
+			execute_select(result, db, efield, evalue);
+			if (result.students.size() > 0) {
+				result.status = QUERY_FAILURE;
+				strcpy(result.errorMessage, ERRORCOLOR "ERROR: trying to update to an id that is already used\n" COLOR_OFF);
+			}
+		} else {
+			for (student_t& s : db->data) {
+				if (predicate(s)) {
+					updater(s);
+					result.students.push_back(s);
+				}
+			}
 		}
+		result.status = QUERY_SUCCESS;
+		pthread_mutex_unlock(&db->exclusive_access);
 	}
-	// string text = to_string(counter) + " student(s) updated\n";
-	// result.students.push_back(text);
+	
 }
 
 void execute_insert(query_result_t& result, database_t* const db, const char* const fname, const char* const lname, const unsigned id, 
 const char* const section, const tm birthdate) {
 	db->data.emplace_back();
 	student_t *s = &db->data.back();
+	// execute_select(result, db, "id", to_string(id).c_str());
+	// if (result.students.size() > 0) {
+	// 	result.status = QUERY_FAILURE;
+	// 	strcpy(result.errorMessage, ERRORCOLOR "ERROR: trying to insert a student with an id that is already used\n" COLOR_OFF);
+	// 	return;
+	// }
+	result.students.clear();
 	s->id = id;
 	snprintf(s->fname, sizeof(s->fname), "%s", fname);
 	snprintf(s->lname, sizeof(s->lname), "%s", lname);
 	snprintf(s->section, sizeof(s->section), "%s", section);
 	s->birthdate = birthdate;
 	result.students.push_back(*s);
+	result.status = QUERY_SUCCESS;
 }
 
 void execute_delete(query_result_t& result, database_t* const db, const char* const field, const char* const value) {
 	std::function<bool(const student_t&)> predicate = get_filter(field, value);
 	if (!predicate) {
-		// query_fail_bad_filter(fout, field, value);
+		query_fail_bad_filter(result, field, value);
 		return;
 	}
 	int counter = 0;
 	size_t taille = db->data.size();
-	for (size_t i=0; i < taille;  i++) {
+	for (size_t i=0; i < taille; i++) {
 		if (predicate(db->data[i])) {
 			result.students.push_back(db->data[i]);
 			db->data[i] = db->data[db->data.size()-1];
@@ -78,8 +92,7 @@ void execute_delete(query_result_t& result, database_t* const db, const char* co
 			counter++;
 		}
 	}
-	// string text = to_string(counter) + " deleted student(s)\n";
-	// result.students.push_back(text);
+	result.status = QUERY_SUCCESS;
 }
 
 // parse_and_execute_* ////////////////////////////////////////////////////////
@@ -88,9 +101,9 @@ void parse_and_execute_select(query_result_t& result, database_t* db, const char
 	char ffield[32], fvalue[64];  // filter data
 	int counter;
 	if (sscanf(query, "select %31[^=]=%63s%n", ffield, fvalue, &counter) != 2) {
-		// query_fail_bad_format(result, "select");
+		query_fail_bad_format(result, "select");
 	} else if (static_cast<unsigned>(counter) < strlen(query)) {
-		// query_fail_too_long(result, "select");
+		query_fail_too_long(result);
 	} else {
 		execute_select(result, db, ffield, fvalue);
 	}
@@ -101,9 +114,9 @@ void parse_and_execute_update(query_result_t& result, database_t* db, const char
 	char efield[32], evalue[64];  // edit data
 	int counter;
 	if (sscanf(query, "update %31[^=]=%63s set %31[^=]=%63s%n", ffield, fvalue, efield, evalue, &counter) != 4) {
-		// query_fail_bad_format(fout, "update");
+		query_fail_bad_format(result, "update");
 	} else if (static_cast<unsigned>(counter) < strlen(query)) {
-		// query_fail_too_long(fout, "update");
+		query_fail_too_long(result);
 	} else {
 		execute_update(result, db, ffield, fvalue, efield, evalue);
 	}
@@ -116,9 +129,12 @@ void parse_and_execute_insert(query_result_t& result, database_t* db, const char
 	int       counter;
 	if (sscanf(query, "insert %63s %63s %u %63s %10s%n", fname, lname, &id, section, date, &counter) != 5 || 
 	strptime(date, "%d/%m/%Y", &birthdate) == NULL) {
-		// query_fail_bad_format(fout, "insert");
+		query_fail_bad_format(result, "insert");
+	} else if (birthdate.tm_mday == 29 && birthdate.tm_mon + 1 == 2 && 
+	!((birthdate.tm_year + 1900) % 4 == 0 && (birthdate.tm_year + 1900) % 100 == 0 && (birthdate.tm_year + 1900) % 400 == 0)) {
+		query_fail_bad_birthdate(result, date);
 	} else if (static_cast<unsigned>(counter) < strlen(query)) {
-		// query_fail_too_long(fout, "insert");
+		query_fail_too_long(result);
 	} else {
 		execute_insert(result, db, fname, lname, id, section, birthdate);
 	}
@@ -128,9 +144,9 @@ void parse_and_execute_delete(query_result_t& result, database_t* db, const char
 	char ffield[32], fvalue[64]; // filter data
 	int counter;
 	if (sscanf(query, "delete %31[^=]=%63s%n", ffield, fvalue, &counter) != 2) {
-		// query_fail_bad_format(fout, "delete");
+		query_fail_bad_format(result, "delete");
 	} else if (static_cast<unsigned>(counter) < strlen(query)) {
-		// query_fail_too_long(fout, "delete");
+		query_fail_too_long(result);
 	} else {
 		execute_delete(result, db, ffield, fvalue);
 	}
@@ -145,33 +161,37 @@ void parse_and_execute(query_result_t& result, database_t* db, const char* const
 		parse_and_execute_insert(result, db, query);
 	} else if (strncmp("delete", query, sizeof("delete")-1) == 0) {
 		parse_and_execute_delete(result, db, query);
-	} else {
-		// query_fail_bad_query_type(result);
-	}
+	} else { query_fail_bad_query_type(result); }
 }
 
 // query_fail_* ///////////////////////////////////////////////////////////////
 
-void query_fail_bad_query_type(FILE* fout) {
-	cout << "fichier : " << fout << endl;
+void query_fail_bad_query_type(query_result_t& result) {
+	result.status = QUERY_FAILURE;
+	strcpy(result.errorMessage, ERRORCOLOR "ERROR: unknown query type\n" COLOR_OFF);
 }
 
-void query_fail_bad_format(FILE* fout, const char * const query_type) {
-		cout << "ERROR : " << query_type << endl;
-		cout << "fichier : " << fout << endl;
+void query_fail_bad_format(query_result_t& result, const char * const query_type) {
+	result.status = QUERY_FAILURE;
+	sprintf(result.errorMessage, ERRORCOLOR "ERROR: syntax error in %s\n" COLOR_OFF, query_type);
 }
 
-void query_fail_too_long(FILE* fout, const char * const query_type) {
-	cout << "ERROR : " << query_type << endl;
-	cout << "fichier : " << fout << endl;
+void query_fail_too_long(query_result_t& result) {
+	result.status = QUERY_FAILURE;
+	strcpy(result.errorMessage, ERRORCOLOR "ERROR: the query is too long\n" COLOR_OFF);
 }
 
-void query_fail_bad_filter(FILE* fout, const char* const field, const char* const filter) {
-	cout << "ERROR : " << field << filter << endl;
-	cout << "fichier : " << fout << endl;
+void query_fail_bad_filter(query_result_t& result, const char* const field, const char* const filter) {
+	result.status = QUERY_FAILURE;
+	sprintf(result.errorMessage, ERRORCOLOR "ERROR: '%s=%s' is not a valid filter\n" COLOR_OFF, field, filter);
 }
 
-void query_fail_bad_update(FILE* fout, const char* const field, const char* const filter) {
-	cout << "ERROR : " << field << filter << endl;
-	cout << "fichier : " << fout << endl;
+void query_fail_bad_update(query_result_t& result, const char* const field, const char* const filter) {
+	result.status = QUERY_FAILURE;
+	sprintf(result.errorMessage, ERRORCOLOR "ERROR: you cannot apply '%s=%s'\n" COLOR_OFF, field, filter);
+}
+
+void query_fail_bad_birthdate(query_result_t& result, const char* const filter) {
+	result.status = QUERY_FAILURE;
+	sprintf(result.errorMessage, ERRORCOLOR "ERROR: %s is not a valid birthdate\n" COLOR_OFF, filter);
 }

@@ -10,8 +10,17 @@
 
 using namespace std;
 
+#define ERRORCOLOR  "\033[31m"
+#define SUCCESSCOLOR  "\033[32m"
+#define COLOR_OFF   "\033[0m"
+
+enum QUERY_STATUS {QUERY_SUCCESS, QUERY_FAILURE};
+
 struct query_result_t {
     vector<student_t> students;
+    char errorMessage[256];
+    QUERY_STATUS status;
+
 };
 
 // execute_* //////////////////////////////////////////////////////////////////
@@ -46,10 +55,12 @@ void query_fail_bad_query_type(query_result_t& result);
 
 void query_fail_bad_format(query_result_t& result, const char* const query_type);
 
-void query_fail_too_long(query_result_t& result, const char* const query_type);
+void query_fail_too_long(query_result_t& result);
 
 void query_fail_bad_filter(query_result_t& result, const char* const field, const char* const filter);
 
 void query_fail_bad_update(query_result_t& result, const char* const field, const char* const filter);
+
+void query_fail_bad_birthdate(query_result_t& result, const char* const filter);
 
 #endif
