@@ -34,12 +34,12 @@ bool is_str_zero(const char* const str) {
 
 string student_to_str(const student_t *s) {
 	int day   = s->birthdate.tm_mday;
-	int month = s->birthdate.tm_mon;
-	int year  = s->birthdate.tm_year;
+	int month = s->birthdate.tm_mon + 1;
+	int year  = s->birthdate.tm_year + 1900;
 	string s_student;
 	// conversion de l'id :
 	string id_string = "";
-	size_t id_conversion = strlen(to_string(s->id).c_str());
+	size_t id_conversion = to_string(s->id).size();
 	for (int i=0; i<9-(int)id_conversion; i++) {
 		id_string += "0";
 	}
@@ -48,8 +48,8 @@ string student_to_str(const student_t *s) {
 	// conversion du birthday :
 	string id_day;
 	string id_month;
-	size_t birthday_day_conversion = strlen(to_string(day).c_str());
-	size_t birthday_month_conversion = strlen(to_string(month).c_str());
+	size_t birthday_day_conversion = to_string(day).size();
+	size_t birthday_month_conversion = to_string(month).size();
 	for (int i=0; i<2-(int)birthday_day_conversion; i++) {
 		id_day += "0";
 	}
@@ -57,9 +57,9 @@ string student_to_str(const student_t *s) {
 	for (int i=0; i<2-(int)birthday_month_conversion; i++) {
 		id_month += "0";
 	}
-	id_month += to_string(month + 1);
+	id_month += to_string(month);
 	s_student = id_string + ": " + s->fname + " " + s->lname + " in section " + s->section + ", born on the " +
-	id_day + "/" + id_month + "/" + to_string(year + 1900) + "\n";
+	id_day + "/" + id_month + "/" + to_string(year) + "\n";
 	return s_student;
 }
 

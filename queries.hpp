@@ -11,14 +11,13 @@
 using namespace std;
 
 #define ERRORCOLOR  "\033[31m"
-#define SUCCESSCOLOR  "\033[32m"
 #define COLOR_OFF   "\033[0m"
 
 enum QUERY_STATUS {QUERY_SUCCESS, QUERY_FAILURE};
 
 struct query_result_t {
     vector<student_t> students;
-    char errorMessage[256];
+    char errorMessage[512];
     QUERY_STATUS status;
 
 };

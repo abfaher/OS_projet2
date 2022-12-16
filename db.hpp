@@ -9,9 +9,12 @@
  * Database structure.
  **/
 struct database_t {
-  std::vector<student_t> data; /** Students */
-  const char*            path; /** DB path */
-  pthread_mutex_t exclusive_access;
+	std::vector<student_t> data; /** Students */
+	const char*            path; /** DB path */
+	pthread_mutex_t readAccess;
+	pthread_mutex_t writeAccess;
+	pthread_mutex_t exclusiveAccess;
+	int readers_c = 0;
 };
 
 // Nous utilisons un std::vector ici pour ne pas avoir à gérer le code

@@ -1,0 +1,48 @@
+#!/bin/bash
+
+list() {
+    local ids=()
+    mapfile -t ids < <(ss --no-header --ipv4 --tcp src :28772 | awk '{print $5}')
+    echo "Found ${#ids[@]} client(s) :"
+    for id in "${ids[@]}"; do {
+        echo "  > $id"
+    } done
+}
+
+sync() {
+    local pids=()
+    mapfile -t pids < <(pgrep -f -o ./smalldb)
+    echo "Found ${#pids[@]} instance(s) of smalldb :"
+    for pid in "${pids[@]}"; do {
+        echo "  > Sync process $pid..."
+        kill -s USR1 "$pid"
+    } done
+}
+
+stop() {
+    local pids=()
+    mapfile -t pids < <(pgrep -f -o ./smalldb)
+    echo "Found ${#pids[@]} instance(s) of smalldb :"
+    for pid in "${pids[@]}"; do {
+        echo "  > Stoping process $pid..."
+        kill -s SIGINT "$pid"
+    } done
+}
+
+RED=$'\e[1;31m'
+ENDCOLOR=$'\033[0m'
+if [ -n "$1" ]; then {
+    if [ "$1" = 'list' ] || [ "$1" = 'sync' ] || [ "$1" = 'stop' ]; then {
+        if [ "$1" = 'list' ]; then {         # Gestion de la commande 'list'
+            list
+        } elif [ "$1" = 'sync' ]; then {           # Gestion de la commande 'sync'
+            sync
+        } elif [ "$1" = 'stop' ]; then {           # Gestion de la commande 'stop'
+            stop 
+        } fi
+    } else {
+        echo "$RED ERROR : unknown command $ENDCOLOR" 1>&2 
+    } fi
+} else {
+    echo "$RED ERROR : no command written $ENDCOLOR" 1>&2 
+} fi
