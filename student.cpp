@@ -37,7 +37,8 @@ string student_to_str(const student_t *s) {
 	int month = s->birthdate.tm_mon + 1;
 	int year  = s->birthdate.tm_year + 1900;
 	string s_student;
-	// conversion de l'id :
+
+	/* Ajout de "0" devant l'id */
 	string id_string = "";
 	size_t id_conversion = to_string(s->id).size();
 	for (int i=0; i<9-(int)id_conversion; i++) {
@@ -45,7 +46,7 @@ string student_to_str(const student_t *s) {
 	}
 	id_string += to_string(s->id);
 
-	// conversion du birthday :
+	/* Ajout de "0" dans le birthdate */
 	string id_day;
 	string id_month;
 	size_t birthday_day_conversion = to_string(day).size();
@@ -92,6 +93,7 @@ std::function<bool(const student_t&)> get_filter(const char* const field, const 
 		}
 		if (date.tm_mday == 29 && date.tm_mon + 1 == 2 && 
 		!((date.tm_year + 1900) % 4 == 0 && (date.tm_year + 1900) % 100 == 0 && (date.tm_year + 1900) % 400 == 0)) {
+			/* On vérifie si le 29 février de la date en question existe ou pas */
 			return nullptr;
 		}
 		return [date](const student_t& s) {
@@ -123,6 +125,7 @@ std::function<void(student_t&)> get_updater(const char* const field, const char*
 		}
 		if (date.tm_mday == 29 && date.tm_mon + 1 == 2 && 
 		!((date.tm_year + 1900) % 4 == 0 && (date.tm_year + 1900) % 100 == 0 && (date.tm_year + 1900) % 400 == 0)) {
+			/* On vérifie si le 29 février de la date en question existe ou pas */
 			return nullptr;
 		}
 		return [date](student_t& s) { s.birthdate = date; };

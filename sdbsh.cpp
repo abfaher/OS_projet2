@@ -23,17 +23,18 @@ using namespace std;
 int sock_fd;
 
 void handler(int signal) {
-    if (signal == SIGINT) {
+    if (signal == SIGINT || signal == SIGTERM) {
         if (write(sock_fd, "EXIT", TAILLE_REQUETE) < 0) { 
             cerr << "ERROR : write error" << endl;
             exit(EXIT_FAILURE); 
         }
-        close(sock_fd);
+        close(sock_fd);     /* Coupe la connection avec le serveur */
         exit(EXIT_SUCCESS);
     }
 }
 
 bool connect_to_server(sockaddr_in& server_address, char* server_port) {
+    /*  */
     if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) { 
         cerr << "ERROR : socket error" << endl; 
         return false;
@@ -42,7 +43,7 @@ bool connect_to_server(sockaddr_in& server_address, char* server_port) {
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(28772);
 
-    // Conversion de string vers IPv4 ou IPv6 en binaire
+    // Conversion du port entré par le client en ip ou ipv6 binaire 
     if (inet_pton(AF_INET, server_port, &server_address.sin_addr) < 0) {
         cerr << "ERROR : invalid ip address" << endl;
         return false;
@@ -59,24 +60,26 @@ bool connect_to_server(sockaddr_in& server_address, char* server_port) {
 int main(int argc, char *argv[]){
     (void)argc;
     struct sockaddr_in serv_addr;
+    bool disconnect = false;        /* Permet de savoir si le serveur est fermé ou pas */
     if (connect_to_server(serv_addr, argv[1])) {
         char requete[TAILLE_REQUETE], result[TAILLE_RESULTAT];
         signal(SIGINT, handler);
+        signal(SIGTERM, handler);
 
-        /* dans la boucle, on fait de telle sorte que chaque requête lue à partir du terminal
-        va être envoyée au serveur pour la traiter et puis le client lit directement après 
-        le résultat de cette requête, puis fait un clear de la requête. */
-        while (cin.getline(requete, 256) && (strcmp(requete, " ") != 0)) {
+        /* Boucle dans laquelle chaque requête est envoyée au serveur et pour chacune d'entres elles
+        on attends que le serveur renvoie les résultat puis on les affiche */
+        while (cin.getline(requete, TAILLE_REQUETE)) {
             if (write(sock_fd, requete, TAILLE_REQUETE) < 0) { cerr << "ERROR : write error" << endl; break; }
             while(read(sock_fd, result, TAILLE_RESULTAT) > 0) {
-                if (strcmp(result, "STOP") == 0) { break; }
-                else { 
-                    cout << result;
-                    if (strcmp(result, "SERVER SHUTTING DOWN") == 0) { break; }
-                }
+                if (strcmp(result, "END") == 0) { disconnect = true; }
+                else if (strcmp(result, "STOP") == 0) { break; }
+                else { cout << result; }
                 memset(result, 0, TAILLE_RESULTAT);
             }
+            /* On sort de la boucle quand le serveur se ferme pour ne plus donner d'autres requêtes à traiter */
+            if (disconnect) { break; }
         }
+        if (disconnect) { cout << "SERVER GOT SHUT DOWN" << endl; }
         kill(getpid(), SIGINT);
     } else {
         cerr << "ERROR : unable to connect to the server" << endl;

@@ -12,46 +12,59 @@ void execute_select(query_result_t& result, database_t* const db, const char* co
 	std::function<bool(const student_t&)> predicate = get_filter(field, value);
 	if (!predicate) { query_fail_bad_filter(result, field, value); } 
 	else {
+		/* Voir section 3.1 du rapport (synchronisation des requêtes) */
 		pthread_mutex_lock(&db->exclusiveAccess);
 		pthread_mutex_lock(&db->readAccess);
+		/* On bloque writeAccess pour qu'aucune requête d'écriture ne puisse s'exécuter */
 		if (db->readers_c == 0) { pthread_mutex_lock(&db->writeAccess); }
 		db->readers_c++;
 		pthread_mutex_unlock(&db->exclusiveAccess);
 		pthread_mutex_unlock(&db->readAccess);
+		cout << "débloqués (select)" << endl;
 		for (const student_t& s : db->data) {
 			if (predicate(s)) { result.students.push_back(s); }
 		}
 		result.status = QUERY_SUCCESS;
-		pthread_mutex_lock(&db->exclusiveAccess);
+		pthread_mutex_lock(&db->readAccess);
 		db->readers_c--;
 		if (db->readers_c == 0) { pthread_mutex_unlock(&db->writeAccess); }
-		pthread_mutex_unlock(&db->exclusiveAccess);
+		pthread_mutex_unlock(&db->readAccess);
 	}
 }
 
 void execute_update(query_result_t& result, database_t* const db, const char* const ffield, const char* const fvalue, 
 const char* const efield, const char* const evalue) {
-	std::function<bool(const student_t&)> predicate = get_filter(ffield, fvalue);
-	if (!predicate) { query_fail_bad_filter(result, ffield, fvalue); } 
-	else {
-		std::function<void(student_t&)> updater = get_updater(efield, evalue);
-		if (!updater) { query_fail_bad_update(result, efield, evalue); } 
-		else if (strcmp(efield, "id") == 0) {
-			execute_select(result, db, efield, evalue);
-			if (result.students.size() > 0) {
+/* Voir section 3.2 du rapport (synchronisation des requêtes) */
+std::function<bool(const student_t&)> predicate = get_filter(ffield, fvalue);
+if (!predicate) { query_fail_bad_filter(result, ffield, fvalue); } 
+else {
+	std::function<void(student_t&)> updater = get_updater(efield, evalue);
+	if (!updater) { query_fail_bad_update(result, efield, evalue); } 
+	if (strcmp(efield, "id") == 0) {
+		execute_select(result, db, efield, evalue);
+		if (result.students.size() > 0) {	/* Vérifie si l'id n'appartient pas à un étudiant */
+			result.status = QUERY_FAILURE;
+			strcpy(result.errorMessage, ERRORCOLOR "ERROR: trying to update to an id that is already used\n" COLOR_OFF);
+			return;
+		} else if (strcmp(ffield, "id") == 0) {
+			execute_select(result, db, ffield, fvalue);
+			if (result.students.size() > 1) {
 				result.status = QUERY_FAILURE;
-				strcpy(result.errorMessage, ERRORCOLOR "ERROR: trying to update to an id that is already used\n" COLOR_OFF);
+				strcpy(result.errorMessage, ERRORCOLOR "ERROR: trying to have the same id for multiple students\n" COLOR_OFF);
+				return;
 			}
-		} else {
-			pthread_mutex_lock(&db->exclusiveAccess);
-			pthread_mutex_lock(&db->writeAccess);
-			pthread_mutex_unlock(&db->exclusiveAccess);
-			for (student_t& s : db->data) {
-				if (predicate(s)) { updater(s); result.students.push_back(s); }
-			}
-			result.status = QUERY_SUCCESS;
-			pthread_mutex_unlock(&db->writeAccess);
 		}
+	}
+
+	/* Voir section 3.2 du rapport (synchronisation des requêtes) */
+	pthread_mutex_lock(&db->exclusiveAccess);
+	pthread_mutex_lock(&db->writeAccess);
+	pthread_mutex_unlock(&db->exclusiveAccess);
+	for (student_t& s : db->data) {
+		if (predicate(s)) { updater(s); result.students.push_back(s); }
+	}
+	result.status = QUERY_SUCCESS;
+	pthread_mutex_unlock(&db->writeAccess);
 	}
 }
 
@@ -62,6 +75,7 @@ const char* const section, const tm birthdate) {
 		result.status = QUERY_FAILURE;
 		strcpy(result.errorMessage, ERRORCOLOR "ERROR: trying to insert a student with an id that is already used\n" COLOR_OFF);
 	} else {
+		/* Voir section 3.2 du rapport */
 		pthread_mutex_lock(&db->exclusiveAccess);
 		pthread_mutex_lock(&db->writeAccess);
 		pthread_mutex_unlock(&db->exclusiveAccess);
@@ -84,6 +98,7 @@ void execute_delete(query_result_t& result, database_t* const db, const char* co
 	std::function<bool(const student_t&)> predicate = get_filter(field, value);
 	if (!predicate) { query_fail_bad_filter(result, field, value); } 
 	else {
+		/* Voir section 3.2 du rapport (synchronisation des requêtes) */
 		pthread_mutex_lock(&db->exclusiveAccess);
 		pthread_mutex_lock(&db->writeAccess);
 		pthread_mutex_unlock(&db->exclusiveAccess);

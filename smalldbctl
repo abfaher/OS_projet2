@@ -2,31 +2,24 @@
 
 list() {
     local ids=()
-    mapfile -t ids < <(ss --no-header --ipv4 --tcp src :28772 | awk '{print $5}')
+    mapfile -t ids < <(ss --no-header --ipv4 --tcp 'sport = :28772' | awk '{print $5}')   # Récupération des adresses IP des clients
     echo "Found ${#ids[@]} client(s) :"
     for id in "${ids[@]}"; do {
+    # Affichage des adresses IP des clients
         echo "  > $id"
     } done
 }
 
 sync() {
-    local pids=()
-    mapfile -t pids < <(pgrep -f -o ./smalldb)
-    echo "Found ${#pids[@]} instance(s) of smalldb :"
-    for pid in "${pids[@]}"; do {
-        echo "  > Sync process $pid..."
-        kill -s USR1 "$pid"
-    } done
+    mapfile -t pid < <(pgrep -f -o ./smalldb)       # Récupération du pid de l'exécutable du serveur
+    echo "Sync SmallDB..."
+    kill -s USR1 "$pid"     # Envoi du signal
 }
 
 stop() {
-    local pids=()
-    mapfile -t pids < <(pgrep -f -o ./smalldb)
-    echo "Found ${#pids[@]} instance(s) of smalldb :"
-    for pid in "${pids[@]}"; do {
-        echo "  > Stoping process $pid..."
-        kill -s SIGINT "$pid"
-    } done
+    mapfile -t pid < <(pgrep -f -o ./smalldb)       # Récupération du pid de l'exécutable du serveur
+    echo "Stoping SmallDB..."
+    kill -s SIGINT "$pid"       # Envoi du signal
 }
 
 RED=$'\e[1;31m'

@@ -11,10 +11,10 @@
 struct database_t {
 	std::vector<student_t> data; /** Students */
 	const char*            path; /** DB path */
-	pthread_mutex_t readAccess;
-	pthread_mutex_t writeAccess;
-	pthread_mutex_t exclusiveAccess;
-	int readers_c = 0;
+	pthread_mutex_t readAccess;		/* Permet d'avoir l'autiratios de écrire/lire la db */
+	pthread_mutex_t writeAccess;	/* Permet d'écrire dans la db */
+	pthread_mutex_t exclusiveAccess;		/* Permet de lire dans la db */
+	int readers_c = 0;		/* Permet de connaitre le nombre requêtes de lecture en plain exécution */
 };
 
 // Nous utilisons un std::vector ici pour ne pas avoir à gérer le code

@@ -16,7 +16,8 @@
 
 using namespace std;
 
-#define RESULT_TAILLE 512
+#define TAILLE_RESULTAT 512
+#define TAILLE_REQUETE 256
 #define WAITING_REQUESTS 5
 
 vector<int> communication_socket;
@@ -24,20 +25,33 @@ database_t db;
 int listening_fd, connected_clients = 0;
 vector<pthread_t> threads;
 
+void disconnect_client(int socket, bool connectionLost) {
+	if (connectionLost) {		/* Vérifie si la déconnection du lcient était intentionnel */
+		cout << "SmallDB : Lost connection to client " << socket << endl;
+		cout << "SmallDB : Closing connection " << socket << endl;
+		cout << "SmallDB : Closing thread for connection " << socket << endl;
+	} else {
+		cout << "SmallDB : Client " << socket << " disconnected (normal). Closing connections and thread" << endl;
+	}
+	close(socket);
+	connected_clients--;
+}
+
 void wait_threads() {
-	for (size_t i = 0; i < threads.size(); i++) {
-		pthread_join(threads[i], NULL);
+	close(listening_fd);	/* Fermeture du scocket qui permet la connexion de nouveau client */
+	for (size_t i = 0; i < communication_socket.size(); i++) {
+		write(communication_socket[i], "END", TAILLE_RESULTAT); /* Envoi d'un message d'arrêt du serveur */
+		pthread_join(threads[i], NULL);		/* Attente que de la fin du thread */
 	}
 	threads.clear();
+	communication_socket.clear();
 }
 
 void handler(int signal) {
 	if (signal == SIGINT || signal == SIGTERM) {
-		for (size_t i = 0; i < communication_socket.size(); i++) {
-			write(communication_socket[i], "SERVER SHUTTING DOWN", RESULT_TAILLE);
-		}
+		cout << "\nSmallDB : Waiting for queries to finish" << endl;
 		wait_threads();		/* Fermeture des sessions clients */
-		cout << "\nSmallDB : Saving database" << endl;
+		cout << "SmallDB : Saving database" << endl;
 		db_save(&db);		/* Sauvegarde de la base de données */
 		cout << "SmallDB : database saved" << endl;
 		cout << "SmallDB : Closing the server" << endl;
@@ -57,45 +71,34 @@ void handler(int signal) {
 	}
 }
 
-void disconnect_client(int socket, bool connectionLost) {
-	if (connectionLost) {		/* Vérifie si la déconnection du lcient était intentionnel */
-		cout << "SmallDB : Lost connection to client " << socket << endl;
-		cout << "SmallDB : Closing connection " << socket << endl;
-		cout << "SmallDB : Closing thread for connection " << socket << endl;
-	} else {
-		cout << "SmallDB : Client " << socket << " disconnected (normal). Closing connections and thread" << endl;
-	}
-	close(socket);
-	connected_clients--;
-}
-
 void* queries_management(void* ptr) {
-	int sock = *(int*)ptr;
+	int sock = *(int*)ptr; 		/* Récupération du socket */
 	char requete[256], text[512];
 	query_result_t result;
 	bool connectionStatus = true;
-
 	while (read(sock, requete, 256) > 0) {		/* le serveur se met en attente d'une requête venant du client */
 		if (strcmp(requete, "EXIT") == 0) { connectionStatus = false; break; } 
 		else {
-			parse_and_execute(result, &db, requete);
+			parse_and_execute(result, &db, requete);		/* Traitement de la requête */
 			if (result.status == QUERY_SUCCESS) {
 				if ((strncmp(requete, "select", sizeof("select")-1) == 0) || (strncmp(requete, "insert", sizeof("insert")-1) == 0)) {
 					for (size_t i = 0; i < result.students.size(); i++) {
+						/* Affichage des étudiants (pour le "select" et le "insert") */
 						strcpy(text, student_to_str(&result.students[i]).c_str());
-						if ((write(sock, text, RESULT_TAILLE)) < 0) { cerr << "ERROR : write error" << endl; }
-						memset(text, 0, RESULT_TAILLE);
+						if ((write(sock, text, TAILLE_RESULTAT)) < 0) { cerr << "ERROR : write error" << endl; }
+						memset(text, 0, TAILLE_RESULTAT);
 					}
 				}
 				if (strncmp(requete, "select", sizeof("select") - 1) == 0) { sprintf(text, "%d student(s) selected\n", (int)result.students.size()); }
 				else if (strncmp(requete, "update", sizeof("update") - 1) == 0) { sprintf(text, "%d student(s) updated\n", (int)result.students.size()); }
-				else if (strncmp(requete, "delete", sizeof("delete") - 1) == 0) { sprintf(text, "%d deleted student(s)\n", (int)result.students.size()); }
-				write(sock, text, RESULT_TAILLE);
-			} else { write(sock, result.errorMessage, RESULT_TAILLE); }
+				else if (strncmp(requete, "delete", sizeof("delete") - 1) == 0) { sprintf(text, "%d student(s) deleted\n", (int)result.students.size()); }
+				write(sock, text, TAILLE_RESULTAT);
+			} else { write(sock, result.errorMessage, TAILLE_RESULTAT); }
+			/* Nettoyage des chaines de caractères */
 			result.students.clear();
-			memset(text, 0, RESULT_TAILLE);
-			memset(result.errorMessage, 0, RESULT_TAILLE);
-			write(sock, "STOP", RESULT_TAILLE);  // envoyer un message d'arrêt
+			memset(text, 0, TAILLE_RESULTAT);
+			memset(result.errorMessage, 0, TAILLE_RESULTAT);
+			write(sock, "STOP", TAILLE_RESULTAT);  /* Envoi d'un message pour indiquer la fin du message écrit */
 		}
 	}
 	disconnect_client(sock, connectionStatus);
@@ -107,12 +110,12 @@ bool server_init(sockaddr_in& server_address) {
 	server_address.sin_addr.s_addr = INADDR_ANY;
 	server_address.sin_port = htons(28772);
 
-	// creating a socket
+	/* Création du socket qui permettra la connection des clients */
 	if ((listening_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		cerr << "ERROR : socket error" << endl;
 		return false;
 	}
-	/* Bind the socket to the server */
+	/* Lie le socket au server */
 	if (bind(listening_fd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
 		cerr << "ERROR : bind error" << endl;
 		return false;
